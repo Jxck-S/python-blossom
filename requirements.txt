@@ -1,0 +1,6 @@
+# Production dependencies
+requests>=2.28.0,<3.0.0
+pynostr[websocket-client]>=0.3.0
+
+# Note: pynostr[websocket-client] includes the websocket-client extra
+# which is needed for RelayManager and real-time Nostr relay functionality
