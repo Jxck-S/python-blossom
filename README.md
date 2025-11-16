@@ -26,12 +26,7 @@ Or install from GitHub:
 pip install git+https://github.com/Jxck-S/python-blossom.git
 ```
 
-For development:
-```bash
-git clone https://github.com/Jxck-S/python-blossom.git
-cd python-blossom
-pip install -e ".[dev]"
-```
+
 
 ## Quick Start
 
