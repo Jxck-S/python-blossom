@@ -1,7 +1,7 @@
 # python-blossom
 
 <div align="center">
-  <img src="python-blossom.png" alt="python-blossom logo" width="200" />
+  <img src="https://raw.githubusercontent.com/Jxck-S/python-blossom/main/python-blossom.png" alt="python-blossom logo" width="200" />
 </div>
 
 High-level Python client for the [Blossom protocol](https://github.com/hzrd149/blossom) (blob storage via Nostr auth).
