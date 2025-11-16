@@ -28,7 +28,7 @@ sha256 = result['sha256']
 print("\n=== GET /list/<pubkey> (list user's blobs) ===")
 # Can list any pubkey's blobs without being that user
 # list_blobs() automatically converts npub to hex
-blobs = client.list_blobs(server, pubkey_hex=PUBKEY)
+blobs = client.list_blobs(server, pubkey=PUBKEY)
 print(f"User {PUBKEY[:20]}... has {len(blobs)} blobs on server")
 if blobs:
     latest = blobs[0]  # Most recent

@@ -22,7 +22,7 @@ def server_list(client):
     This fixture fetches the server list once per test class and all tests
     reuse the result, avoiding duplicate network calls.
     """
-    return client.fetch_server_list(relays=RELAYS, pubkey_hex=client.pubkey_hex)
+    return client.fetch_server_list(relays=RELAYS, pubkey=client.pubkey_hex)
 
 
 class TestFetchServerList:

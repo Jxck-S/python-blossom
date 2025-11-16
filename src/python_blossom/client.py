@@ -80,24 +80,87 @@ class BlossomClient:
     - BUD-04: PUT /mirror
     - BUD-05: Media optimization (HEAD /media, PUT /media) [optional]
     - BUD-06: HEAD /upload (upload requirements)
+    - BUD-09: PUT /report [TODO - not yet implemented]
     """
 
     def __init__(self, nsec: Optional[str] = None, default_servers: Optional[List[str]] = None, expiration_seconds: int = DEFAULT_EXPIRATION_SECONDS):
         """Initialize client.
 
-        :param nsec: NIP-19 encoded private key (nsec...). If omitted, only public endpoints can be used.
+        :param nsec: Private key in any format (nsec, hex, or other NIP-19 encodings). If omitted, only public endpoints can be used.
         :param default_servers: Ordered list of Blossom server base URLs (no trailing slash).
         :param expiration_seconds: Expiration time for auth events.
         """
         self.expiration_seconds = expiration_seconds
         self.default_servers = default_servers or []
-        self._priv: Optional[PrivateKey] = PrivateKey.from_nsec(nsec) if nsec else None
+        self._priv: Optional[PrivateKey] = self._normalize_private_key(nsec) if nsec else None
         self.pubkey_hex: Optional[str] = self._priv.public_key.hex() if self._priv else None
 
     # ----------------------- Internal Helpers -----------------------
     def _require_key(self):
         if not self._priv:
-            raise BlossomError("Private key required for this operation. Provide nsec when instantiating BlossomClient.")
+            raise BlossomError("Private key required for this operation. Provide a private key when instantiating BlossomClient.")
+
+    def _normalize_private_key(self, private_key_input: str) -> PrivateKey:
+        """Normalize private key from any supported format to PrivateKey object.
+        
+        Accepts: nsec (NIP-19), hex string, or other NIP-19 encoded private key formats.
+        
+        :param private_key_input: Private key in any supported format
+        :return: PrivateKey object
+        :raises BlossomError: If format is invalid or unsupported
+        """
+        private_key_input = private_key_input.strip()
+        
+        # Try nsec format first
+        if private_key_input.startswith('nsec1'):
+            try:
+                return PrivateKey.from_nsec(private_key_input)
+            except Exception as e:
+                raise BlossomError(f"Invalid nsec format: {e}") from e
+        
+        # Try hex format (64 hex characters)
+        if len(private_key_input) == 64:
+            try:
+                int(private_key_input, 16)  # Validate it's hex
+                return PrivateKey(bytes.fromhex(private_key_input))
+            except ValueError:
+                pass  # Not valid hex, continue to other formats
+        
+        # Try other NIP-19 formats if they become supported
+        raise BlossomError("Unsupported private key format. Expected nsec or 64-char hex string.")
+
+    def _normalize_public_key_to_hex(self, pubkey_input: Optional[str]) -> str:
+        """Normalize public key from any supported format to hex string.
+        
+        Accepts: npub (NIP-19), hex string (64 chars).
+        
+        :param pubkey_input: Public key in any supported format, or None to use self.pubkey_hex
+        :return: 64-char hex public key string
+        :raises BlossomError: If format is invalid or unsupported
+        """
+        if not pubkey_input:
+            if not self.pubkey_hex:
+                raise BlossomError("Public key required (no private key provided and pubkey not supplied)")
+            return self.pubkey_hex
+        
+        pubkey_input = pubkey_input.strip()
+        
+        # Try npub format
+        if pubkey_input.startswith('npub1'):
+            try:
+                return self._decode_npub(pubkey_input)
+            except Exception as e:
+                raise BlossomError(f"Invalid npub format: {e}") from e
+        
+        # Try hex format
+        if len(pubkey_input) == 64:
+            try:
+                int(pubkey_input, 16)  # Validate it's hex
+                return pubkey_input
+            except ValueError:
+                raise BlossomError("Public key is not valid hex")
+        
+        raise BlossomError("Unsupported public key format. Expected npub or 64-char hex string.")
 
     def _sha256_bytes(self, data: bytes) -> str:
         return hashlib.sha256(data).hexdigest()
@@ -245,19 +308,18 @@ class BlossomClient:
         }
 
     # BUD-02: GET /list/<pubkey>
-    def list_blobs(self, server: str, pubkey_hex: Optional[str] = None, cursor: Optional[str] = None, limit: Optional[int] = None, use_auth: bool = False) -> List[Dict[str, Any]]:
-        # Convert npub to hex if provided
-        target_pub = pubkey_hex or self.pubkey_hex
-        if target_pub and target_pub.startswith('npub1'):
-            # Convert NIP-19 npub to hex
-            from pynostr.key import PublicKey
-            try:
-                target_pub = PublicKey.from_npub(target_pub).hex()
-            except Exception:
-                # If conversion fails, assume it's already hex
-                pass
-        if not target_pub:
-            raise BlossomError("pubkey required (no private key provided and pubkey_hex not supplied)")
+    def list_blobs(self, server: str, pubkey: Optional[str] = None, cursor: Optional[str] = None, limit: Optional[int] = None, use_auth: bool = False) -> List[Dict[str, Any]]:
+        """List blobs for a user.
+        
+        :param server: Server URL
+        :param pubkey: Public key in any format (npub or hex). If None, uses client's public key.
+        :param cursor: Pagination cursor
+        :param limit: Limit number of results
+        :param use_auth: Whether to include authorization
+        :return: List of blob descriptors
+        """
+        # Normalize public key to hex
+        target_pubkey = self._normalize_public_key_to_hex(pubkey)
         params = {}
         if cursor:
             params['cursor'] = cursor
@@ -266,7 +328,7 @@ class BlossomClient:
         headers = {}
         if use_auth:
             headers.update(self._auth_header("list"))
-        url = self._full_url(server, f"list/{target_pub}")
+        url = self._full_url(server, f"list/{target_pubkey}")
         resp = requests.get(url, headers=headers, params=params)
         data = self._handle_response(resp)
         if isinstance(data, bytes):
@@ -394,7 +456,6 @@ class BlossomClient:
         :param servers: Optional list of server URLs; defaults to self.default_servers
         :return: Event ID of the published event
         """
-        import warnings
         from pynostr.relay_manager import RelayManager
         
         self._require_key()
@@ -413,20 +474,29 @@ class BlossomClient:
         ev.sign(self._priv.hex())
         
         # Connect to relays and publish
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message=".*websocket_ping.*")
-            rm = RelayManager(timeout=2)
-            rm.websocket_ping_interval = 60
-            rm.websocket_ping_timeout = 60
-            for relay in relays:
-                rm.add_relay(relay)
-            
-            rm.publish_event(ev)
-            rm.run_sync()
-            time.sleep(2)
-            rm.close_all_relay_connections()
+        rm = RelayManager(timeout=2)
+        rm.websocket_ping_interval = 60
+        rm.websocket_ping_timeout = 60
+        for relay in relays:
+            rm.add_relay(relay)
+        
+        rm.publish_event(ev)
+        rm.run_sync()
+        time.sleep(2)
+        rm.close_all_relay_connections()
         
         return ev.id
+
+    # TODO: BUD-09 - PUT /report endpoint (report abuse/misinformation)
+    # def report_blob(self, server: str, sha256: str, reason: str) -> Dict[str, Any]:
+    #     """Report a blob for abuse or misinformation.
+    #     
+    #     :param server: Server URL
+    #     :param sha256: Blob hash to report
+    #     :param reason: Reason for report
+    #     :return: Report result from server
+    #     """
+    #     pass
 
     # Convenience: upload to all default servers
     def upload_to_all(self, data: Optional[bytes] = None, file_path: Optional[str] = None, mime_type: Optional[str] = None, description: Optional[str] = None, use_auth: bool = True) -> Dict[str, Dict[str, Any]]:
@@ -439,35 +509,35 @@ class BlossomClient:
         return results
 
     # BUD-03: Fetch a user's server list (kind 10063) from relays
-    def fetch_server_list(self, relays: List[str], pubkey_hex: Optional[str] = None, timeout: float = 2.0) -> List[str]:
-        """Query relays (pynostr) for latest kind 10063 server list event for a user."""
+    def fetch_server_list(self, relays: List[str], pubkey: Optional[str] = None, timeout: float = 2.0) -> List[str]:
+        """Query relays for latest kind 10063 server list event for a user.
+        
+        :param relays: List of relay URLs to query (wss://)
+        :param pubkey: Public key in any format (npub or hex). If None, uses client's public key.
+        :param timeout: Timeout in seconds for relay queries
+        :return: List of server URLs from the user's server list event
+        """
         import uuid
-        import warnings
         from pynostr.relay_manager import RelayManager
         from pynostr.filters import FiltersList, Filters
 
-        target_raw = pubkey_hex or self.pubkey_hex
-        target = self._normalize_pubkey(target_raw) if target_raw else None
-        if not target:
-            raise BlossomError("pubkey required (no private key and pubkey_hex not supplied)")
+        target_pubkey = self._normalize_public_key_to_hex(pubkey)
 
         # Initialize RelayManager with matching ping timeout/interval
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message=".*websocket_ping.*")
-            rm = RelayManager(timeout=timeout)
-            rm.websocket_ping_interval = 60
-            rm.websocket_ping_timeout = 60
-            for r in relays:
-                rm.add_relay(r)
+        rm = RelayManager(timeout=timeout)
+        rm.websocket_ping_interval = 60
+        rm.websocket_ping_timeout = 60
+        for r in relays:
+            rm.add_relay(r)
 
-            filters = FiltersList([Filters(authors=[target], kinds=[SERVER_LIST_KIND], limit=1)])
-            sub_id = uuid.uuid4().hex
-            rm.add_subscription_on_all_relays(sub_id, filters)
-            rm.run_sync()  # establish connections & send subscription
-            # small wait window for events
-            time.sleep(timeout)
-            servers = self._extract_server_list(rm, target)
-            rm.close_all_relay_connections()
+        filters = FiltersList([Filters(authors=[target_pubkey], kinds=[SERVER_LIST_KIND], limit=1)])
+        sub_id = uuid.uuid4().hex
+        rm.add_subscription_on_all_relays(sub_id, filters)
+        rm.run_sync()  # establish connections & send subscription
+        # small wait window for events
+        time.sleep(timeout)
+        servers = self._extract_server_list(rm, target_pubkey)
+        rm.close_all_relay_connections()
         return servers
 
     def _extract_server_list(self, relay_manager, target_pubkey: str) -> List[str]:
@@ -482,30 +552,7 @@ class BlossomClient:
                     servers = candidate
         return servers
 
-    # ----------------------- Utility: npub/hex normalization -----------------------
-    def _normalize_pubkey(self, pubkey: str) -> str:
-        """Accept either raw hex public key (64 hex chars) or npub (bech32) and return hex.
-
-        :param pubkey: hex string or npub identifier.
-        :return: 64-char hex public key.
-        """
-        if not pubkey:
-            raise BlossomError("Empty pubkey")
-        pubkey = pubkey.strip()
-        if pubkey.startswith('npub1'):
-            try:
-                return self._decode_npub(pubkey)
-            except Exception as e:
-                raise BlossomError(f"Invalid npub format: {e}") from e
-        # Basic validation for hex
-        if len(pubkey) != 64:
-            raise BlossomError("Hex pubkey must be 64 characters")
-        try:
-            int(pubkey, 16)
-        except ValueError:
-            raise BlossomError("Pubkey is not valid hex")
-        return pubkey
-
+    # ----------------------- Utility: Key format decoding -----------------------
     def _decode_npub(self, npub: str) -> str:
         """Decode a NIP-19 npub (bech32) into hex public key."""
         CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"

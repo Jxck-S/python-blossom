@@ -34,7 +34,7 @@ RELAYS = [
 TARGET_PUBKEY = event['pubkey']
 
 try:
-    fetched_servers = client.fetch_server_list(relays=RELAYS, pubkey_hex=TARGET_PUBKEY, timeout=3.0)
+    fetched_servers = client.fetch_server_list(relays=RELAYS, pubkey=TARGET_PUBKEY, timeout=3.0)
     if fetched_servers:
         print(f"Fetched {len(fetched_servers)} servers for {TARGET_PUBKEY[:16]}...")
         for srv in fetched_servers:

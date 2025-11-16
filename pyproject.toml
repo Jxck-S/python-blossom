@@ -40,14 +40,14 @@ Homepage = "https://github.com/Jxck-S/python-blossom"
 Repository = "https://github.com/Jxck-S/python-blossom.git"
 Issues = "https://github.com/Jxck-S/python-blossom/issues"
 
-[tool.setuptools]
-where = ["src"]
-
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
 python_blossom = ["py.typed"]
+
+[tool.setuptools]
+include-package-data = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

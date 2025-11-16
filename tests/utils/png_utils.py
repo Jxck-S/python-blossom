@@ -284,7 +284,7 @@ def create_minimal_png(width: int, height: int, iteration: int) -> bytes:
     draw_lines_pattern(pixel_data, width, height, iteration)
     
     # Draw text on image (white text)
-    draw_text_on_image(pixel_data, width, height, "blossom_python", 
+    draw_text_on_image(pixel_data, width, height, "python-blossom", 
                       x=20, y=20, color=(255, 255, 255))
     
     compressed = zlib.compress(bytes(pixel_data), 9)

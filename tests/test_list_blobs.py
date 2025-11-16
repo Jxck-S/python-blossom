@@ -43,7 +43,7 @@ def list_blobs_result(client, test_image, list_blobs_server):
     use_auth = SERVER_CAPABILITIES.get(list_blobs_server, {}).get('auth_required', False)
     
     # List blobs with auth if required
-    blobs = client.list_blobs(list_blobs_server, pubkey_hex=client.pubkey_hex, use_auth=use_auth)
+    blobs = client.list_blobs(list_blobs_server, pubkey=client.pubkey_hex, use_auth=use_auth)
     return blobs
 
 

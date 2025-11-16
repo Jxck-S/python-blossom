@@ -4,11 +4,14 @@ import os
 import hashlib
 import pytest
 from python_blossom import BlossomClient
-from python_blossom.utils.png_utils import create_minimal_png
+from utils.png_utils import create_minimal_png
 
 # Add tests directory to path so we can import conftest
 sys.path.insert(0, os.path.dirname(__file__))
-from conftest import NSEC, SERVERS
+from conftest import NSEC, SERVERS, NON_OPTIMIZING_SERVERS
+
+# Use non-optimizing server if available, otherwise fall back to first server
+TEST_SERVER = NON_OPTIMIZING_SERVERS[0] if NON_OPTIMIZING_SERVERS else SERVERS[0]
 
 
 @pytest.fixture(scope='class')
@@ -26,12 +29,12 @@ def integrity_cycle_result(client, test_image):
     duplicate API calls and reducing server strain.
     """
     # Upload
-    upload_result = client.upload_blob(SERVERS[0], data=test_image, mime_type='image/png')
+    upload_result = client.upload_blob(TEST_SERVER, data=test_image, mime_type='image/png')
     sha256_upload = upload_result['sha256']
     size_upload = upload_result['size']
     
     # Download
-    blob = client.get_blob(SERVERS[0], sha256_upload, mime_type='image/png')
+    blob = client.get_blob(TEST_SERVER, sha256_upload, mime_type='image/png')
     downloaded_content = blob.get_bytes()
     
     return {

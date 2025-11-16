@@ -2,7 +2,11 @@
 import pytest
 import sys
 import os
-from python_blossom.utils.png_utils import create_minimal_png
+
+# Add tests directory to path for utils imports
+sys.path.insert(0, os.path.dirname(__file__))
+
+from utils.png_utils import create_minimal_png
 from python_blossom.errors import TooManyRequests
 
 # Test credentials - load from environment variables (GitHub Secrets or local .env)
@@ -18,9 +22,9 @@ if not NSEC or not PUBKEY_NPUB:
 
 # Test servers with capabilities
 SERVER_CAPABILITIES = {
-    'https://blossom.band': {'mirror': True, 'list_blob': True, 'auth_required': True},
-    'https://nostr.download': {'mirror': False, 'list_blob': False, 'auth_required': False},
-    'https://blossom.primal.net/': {'mirror': True, 'list_blob': True, 'auth_required': True}
+    'https://blossom.band': {'mirror': True, 'list_blob': True, 'auth_required': True, 'optimizes_images': True},
+    'https://nostr.download': {'mirror': False, 'list_blob': False, 'auth_required': False, 'optimizes_images': False},
+    'https://blossom.primal.net/': {'mirror': True, 'list_blob': True, 'auth_required': True, 'optimizes_images': False}
 }
 
 # Extract server URLs - can be overridden with environment variable BLOSSOM_TEST_SERVERS
@@ -52,6 +56,14 @@ SORTED_SERVERS = get_sorted_servers()
 
 # Test relays
 RELAYS = ['wss://relay.damus.io', 'wss://nos.lol']
+
+
+def get_non_optimizing_servers():
+    """Get servers that don't optimize images (preserve original format/size)."""
+    return [s for s in SERVERS if not SERVER_CAPABILITIES.get(s, {}).get('optimizes_images', False)]
+
+
+NON_OPTIMIZING_SERVERS = get_non_optimizing_servers()
 
 
 @pytest.fixture(scope='class')

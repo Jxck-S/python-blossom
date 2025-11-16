@@ -6,7 +6,10 @@ from python_blossom import BlossomClient
 
 # Add tests directory to path so we can import conftest
 sys.path.insert(0, os.path.dirname(__file__))
-from conftest import NSEC, SERVERS
+from conftest import NSEC, SERVERS, NON_OPTIMIZING_SERVERS
+
+# Use non-optimizing server if available, otherwise fall back to first server
+TEST_SERVER = NON_OPTIMIZING_SERVERS[0] if NON_OPTIMIZING_SERVERS else SERVERS[0]
 
 
 @pytest.fixture(scope='class')
@@ -23,7 +26,7 @@ def upload_blob_result(client, test_image):
     All tests in the class reuse this result, avoiding duplicate API calls
     and reducing server strain.
     """
-    return client.upload_blob(SERVERS[0], data=test_image, mime_type='image/png')
+    return client.upload_blob(TEST_SERVER, data=test_image, mime_type='image/png')
 
 
 class TestUploadBlob:
