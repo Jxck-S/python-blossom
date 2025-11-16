@@ -16,19 +16,21 @@ Implements core BUDs:
 
 ## Installation
 
-Install from PyPI (coming soon):
+Install from PyPI:
 ```bash
 pip install python-blossom
 ```
 
-Or install locally with pipenv:
+Or install from GitHub:
 ```bash
-pipenv install
+pip install git+https://github.com/Jxck-S/python-blossom.git
 ```
 
 For development:
 ```bash
-pipenv install --dev
+git clone https://github.com/Jxck-S/python-blossom.git
+cd python-blossom
+pip install -e ".[dev]"
 ```
 
 ## Quick Start
