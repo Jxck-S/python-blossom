@@ -7,14 +7,14 @@ import json
 import mimetypes
 import time
 from io import BytesIO
-from typing import List, Optional, Dict, Any, Union
+from typing import Any, Dict, List, Optional, Union
 
 import httpx
-from pynostr.key import PrivateKey
 from pynostr.event import Event
+from pynostr.key import PrivateKey
 
+from .client import AUTH_KIND, DEFAULT_EXPIRATION_SECONDS, SERVER_LIST_KIND, Blob
 from .errors import BlossomError, get_error_from_status
-from .client import Blob, AUTH_KIND, SERVER_LIST_KIND, DEFAULT_EXPIRATION_SECONDS
 
 
 class AsyncBlossomClient:
@@ -269,7 +269,9 @@ class AsyncBlossomClient:
 
         if isinstance(content, dict):
             raise BlossomError("Expected binary blob, got JSON")
-        return Blob(content=content, sha256=sha256, mime_type=mime_type or "application/octet-stream")
+        return Blob(
+            content=content, sha256=sha256, mime_type=mime_type or "application/octet-stream"
+        )
 
     async def head_blob(
         self, server: str, sha256: str, extension: Optional[str] = None, use_auth: bool = False
@@ -441,9 +443,7 @@ class AsyncBlossomClient:
         }
         if use_auth:
             headers.update(
-                self._auth_header(
-                    "media", [sha256], content="Check media optimization support"
-                )
+                self._auth_header("media", [sha256], content="Check media optimization support")
             )
 
         async with httpx.AsyncClient() as client:
@@ -486,8 +486,12 @@ class AsyncBlossomClient:
         tasks = []
         for server in self.default_servers:
             task = self._upload_blob_with_error_handling(
-                server, data=data, file_path=file_path, mime_type=mime_type,
-                description=description, use_auth=use_auth
+                server,
+                data=data,
+                file_path=file_path,
+                mime_type=mime_type,
+                description=description,
+                use_auth=use_auth,
             )
             tasks.append(task)
 
@@ -497,9 +501,7 @@ class AsyncBlossomClient:
         # Map results back to server URLs
         return dict(zip(self.default_servers, results_list))
 
-    async def _upload_blob_with_error_handling(
-        self, server: str, **kwargs
-    ) -> Dict[str, Any]:
+    async def _upload_blob_with_error_handling(self, server: str, **kwargs) -> Dict[str, Any]:
         """Helper to upload blob and catch errors for concurrent operations."""
         try:
             return await self.upload_blob(server, **kwargs)
@@ -568,8 +570,9 @@ class AsyncBlossomClient:
         async support.
         """
         import uuid
+
+        from pynostr.filters import Filters, FiltersList
         from pynostr.relay_manager import RelayManager
-        from pynostr.filters import FiltersList, Filters
 
         target_pubkey = self._normalize_public_key_to_hex(pubkey)
 
@@ -579,9 +582,7 @@ class AsyncBlossomClient:
         for r in relays:
             rm.add_relay(r)
 
-        filters = FiltersList(
-            [Filters(authors=[target_pubkey], kinds=[SERVER_LIST_KIND], limit=1)]
-        )
+        filters = FiltersList([Filters(authors=[target_pubkey], kinds=[SERVER_LIST_KIND], limit=1)])
         sub_id = uuid.uuid4().hex
         rm.add_subscription_on_all_relays(sub_id, filters)
         rm.run_sync()
