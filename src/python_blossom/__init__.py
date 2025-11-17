@@ -1,4 +1,5 @@
 from .client import BlossomClient, Blob
+from .async_client import AsyncBlossomClient
 from .errors import (
     BlossomError,
     BadRequest,
@@ -30,6 +31,7 @@ from .errors import (
 
 __all__ = [
     "BlossomClient",
+    "AsyncBlossomClient",
     "Blob",
     "BlossomError",
     "BadRequest",
