@@ -76,6 +76,52 @@ event_id = client.publish_server_list_event(relays=['wss://relay.damus.io'])
 print(f"Published: {event_id}")
 ```
 
+## Async Client for Concurrent Operations
+
+For applications that need to perform multiple operations concurrently (like uploading to multiple servers), use `AsyncBlossomClient`:
+
+```python
+import asyncio
+from python_blossom import AsyncBlossomClient
+
+async def main():
+    nsec = 'nsec....'
+    servers = [
+        'https://blossom.band',
+        'https://nostr.download',
+        'https://blossom.primal.net'
+    ]
+    
+    client = AsyncBlossomClient(nsec=nsec, default_servers=servers)
+    
+    # Upload to all servers concurrently (much faster than sequential)
+    results = await client.upload_to_all(
+        data=b'blob data',
+        mime_type='image/png',
+        description='Concurrent upload'
+    )
+    
+    # All uploads happen in parallel
+    for server, result in results.items():
+        if 'error' not in result:
+            print(f"✓ {server}: {result['url']}")
+        else:
+            print(f"✗ {server}: {result['error']}")
+    
+    # Other async operations
+    blob = await client.get_blob(servers[0], sha256)
+    blobs = await client.list_blobs(servers[0], use_auth=True)
+    await client.delete_blob(servers[0], sha256)
+
+asyncio.run(main())
+```
+
+**Key Benefits of Async Client:**
+- **Concurrent uploads** to multiple servers (significantly faster)
+- **Non-blocking I/O** for better performance in async applications
+- **Same API** as synchronous client, just use `await`
+- **Perfect for** applications already using `asyncio`
+
 ## Publishing Media to Nostr with Redundancy
 
 Here's how to upload a photo to multiple Blossom servers and publish it to Nostr with automatic failover:

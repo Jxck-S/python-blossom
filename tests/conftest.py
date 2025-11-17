@@ -72,6 +72,19 @@ def test_image():
     return create_minimal_png(256, 256, 1)
 
 
+@pytest.fixture
+def async_client():
+    """Create an async Blossom client for testing."""
+    from python_blossom import AsyncBlossomClient
+    return AsyncBlossomClient(nsec=NSEC, default_servers=SERVERS)
+
+
+@pytest.fixture
+def test_image_data():
+    """Generate test image data."""
+    return create_minimal_png(128, 128, 1)
+
+
 def pytest_configure(config):
     """Register custom markers and initialize error tracking."""
     config.addinivalue_line(
