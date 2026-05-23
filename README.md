@@ -31,7 +31,7 @@ pip install git+https://github.com/Jxck-S/python-blossom.git
 ## Quick Start
 
 ```python
-from blossom_python import BlossomClient
+from python_blossom import BlossomClient
 
 nsec = 'nsec....'  # Your Nostr private key (nsec)
 servers = [
@@ -41,6 +41,8 @@ servers = [
 ]
 
 client = BlossomClient(nsec=nsec, default_servers=servers)
+# Optional: set a custom request timeout (default is 30 seconds)
+# client = BlossomClient(nsec=nsec, default_servers=servers, timeout=10)
 
 # Upload blob data
 result = client.upload_blob(servers[0], data=b'blob data', mime_type='image/png')
@@ -150,6 +152,34 @@ relay_manager.close_all_relay_connections()
 
 ```
 
+## Timeout Configuration
+
+All HTTP requests use a default timeout of **30 seconds** (configurable per-client). Without a timeout, a slow or unresponsive Blossom server can cause the calling thread to hang indefinitely.
+
+```python
+from python_blossom import BlossomClient, DEFAULT_TIMEOUT
+
+# Use the default (30s)
+client = BlossomClient(nsec=nsec, default_servers=servers)
+
+# Set a shorter timeout for all requests made by this client
+client = BlossomClient(nsec=nsec, default_servers=servers, timeout=10)
+
+# Disable timeout entirely (not recommended)
+client = BlossomClient(nsec=nsec, default_servers=servers, timeout=None)
+
+# Inspect the default
+print(DEFAULT_TIMEOUT)  # 30.0
+```
+
+The `timeout` value is passed directly to `requests` and applies to both the connect and read phases of every HTTP call. To set separate connect vs. read timeouts, pass a tuple:
+
+```python
+client = BlossomClient(nsec=nsec, timeout=(5, 30))  # 5s connect, 30s read
+```
+
+On timeout, `requests.exceptions.Timeout` is raised.
+
 ## API Methods
 
 ### Upload & Download
@@ -252,7 +282,7 @@ Raises `BlossomError` or specific subclasses on errors:
 - `BlossomError`: Other HTTP errors
 
 ```python
-from blossom_python.errors import BlobNotFound, TooManyRequests
+from python_blossom.errors import BlobNotFound, TooManyRequests
 
 try:
     blob = client.get_blob(server, sha256)

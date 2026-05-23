@@ -1,4 +1,4 @@
-from .client import BlossomClient, Blob
+from .client import BlossomClient, Blob, DEFAULT_TIMEOUT
 from .errors import (
     BlossomError,
     BadRequest,
@@ -31,6 +31,7 @@ from .errors import (
 __all__ = [
     "BlossomClient",
     "Blob",
+    "DEFAULT_TIMEOUT",
     "BlossomError",
     "BadRequest",
     "InvalidHash",

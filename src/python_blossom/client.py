@@ -16,6 +16,7 @@ from pynostr.event import Event
 AUTH_KIND = 24242  # Authorization events (BUD-01,02,04,06)
 SERVER_LIST_KIND = 10063  # BUD-03 User Server List
 DEFAULT_EXPIRATION_SECONDS = 3600
+DEFAULT_TIMEOUT: float = 30.0
 
 @dataclass
 class Blob:
@@ -83,14 +84,18 @@ class BlossomClient:
     - BUD-09: PUT /report [TODO - not yet implemented]
     """
 
-    def __init__(self, nsec: Optional[str] = None, default_servers: Optional[List[str]] = None, expiration_seconds: int = DEFAULT_EXPIRATION_SECONDS):
+    def __init__(self, nsec: Optional[str] = None, default_servers: Optional[List[str]] = None,
+                 expiration_seconds: int = DEFAULT_EXPIRATION_SECONDS,
+                 timeout: float = DEFAULT_TIMEOUT):
         """Initialize client.
 
         :param nsec: Private key in any format (nsec, hex, or other NIP-19 encodings). If omitted, only public endpoints can be used.
         :param default_servers: Ordered list of Blossom server base URLs (no trailing slash).
         :param expiration_seconds: Expiration time for auth events.
+        :param timeout: Timeout in seconds for all HTTP requests. Defaults to DEFAULT_TIMEOUT (30s).
         """
         self.expiration_seconds = expiration_seconds
+        self.timeout = timeout
         self.default_servers = default_servers or []
         self._priv: Optional[PrivateKey] = self._normalize_private_key(nsec) if nsec else None
         self.pubkey_hex: Optional[str] = self._priv.public_key.hex() if self._priv else None
@@ -267,7 +272,7 @@ class BlossomClient:
         if use_auth:
             headers.update(self._auth_header("upload", [body_hash], content=description or f"Upload {file_path or 'blob'}"))
         url = self._full_url(server, 'upload')
-        resp = requests.put(url, headers=headers, data=data)
+        resp = requests.put(url, headers=headers, data=data, timeout=self.timeout)
         return self._handle_response(resp)
 
     # BUD-01: GET /<sha256>
@@ -285,7 +290,7 @@ class BlossomClient:
         headers = {}
         if use_auth:
             headers.update(self._auth_header("get", [sha256]))
-        resp = requests.get(self._full_url(server, path), headers=headers)
+        resp = requests.get(self._full_url(server, path), headers=headers, timeout=self.timeout)
         content = self._handle_response(resp)
         if isinstance(content, dict):
             raise BlossomError("Expected binary blob, got JSON")
@@ -297,7 +302,7 @@ class BlossomClient:
         headers = {}
         if use_auth:
             headers.update(self._auth_header("get", [sha256]))
-        resp = requests.head(self._full_url(server, path), headers=headers)
+        resp = requests.head(self._full_url(server, path), headers=headers, timeout=self.timeout)
         if resp.status_code >= 400:
             reason = resp.headers.get('X-Reason') or resp.text
             raise BlossomError(f"HTTP {resp.status_code}: {reason}")
@@ -329,7 +334,7 @@ class BlossomClient:
         if use_auth:
             headers.update(self._auth_header("list"))
         url = self._full_url(server, f"list/{target_pubkey}")
-        resp = requests.get(url, headers=headers, params=params)
+        resp = requests.get(url, headers=headers, params=params, timeout=self.timeout)
         data = self._handle_response(resp)
         if isinstance(data, bytes):
             raise BlossomError("Expected JSON list, got bytes")
@@ -340,7 +345,7 @@ class BlossomClient:
     # BUD-02: DELETE /<sha256>
     def delete_blob(self, server: str, sha256: str, description: Optional[str] = None) -> Dict[str, Any]:
         headers = self._auth_header("delete", [sha256], content=description or f"Delete {sha256[:8]}")
-        resp = requests.delete(self._full_url(server, sha256), headers=headers)
+        resp = requests.delete(self._full_url(server, sha256), headers=headers, timeout=self.timeout)
         data = self._handle_response(resp)
         if isinstance(data, bytes):
             # Some servers may return empty body
@@ -352,7 +357,7 @@ class BlossomClient:
         headers = self._auth_header("upload", [sha256], server_url=server, content=description or f"Mirror {sha256[:8]}")
         url = self._full_url(server, 'mirror')
         body = json.dumps({"url": source_url})
-        resp = requests.put(url, headers=headers, data=body)
+        resp = requests.put(url, headers=headers, data=body, timeout=self.timeout)
         data = self._handle_response(resp)
         if isinstance(data, bytes):
             raise BlossomError("Expected JSON blob descriptor")
@@ -384,7 +389,7 @@ class BlossomClient:
         if use_auth:
             # Include the blob hash in x tags for the auth event
             headers.update(self._auth_header("upload", [sha256], content="Check upload requirements"))
-        resp = requests.head(self._full_url(server, 'upload'), headers=headers)
+        resp = requests.head(self._full_url(server, 'upload'), headers=headers, timeout=self.timeout)
         if resp.status_code >= 400:
             reason = resp.headers.get('X-Reason') or resp.text
             error = get_error_from_status(resp.status_code, reason)
@@ -400,7 +405,7 @@ class BlossomClient:
         headers = {"Content-Type": mime_type}
         if use_auth:
             headers.update(self._auth_header("media", [body_hash], content=description or "Media upload"))
-        resp = requests.put(self._full_url(server, 'media'), headers=headers, data=data)
+        resp = requests.put(self._full_url(server, 'media'), headers=headers, data=data, timeout=self.timeout)
         data_resp = self._handle_response(resp)
         if isinstance(data_resp, bytes):
             raise BlossomError("Expected JSON blob descriptor")
@@ -431,7 +436,7 @@ class BlossomClient:
         if use_auth:
             # Include the blob hash in x tags for the auth event
             headers.update(self._auth_header("media", [sha256], content="Check media optimization support"))
-        resp = requests.head(self._full_url(server, 'media'), headers=headers)
+        resp = requests.head(self._full_url(server, 'media'), headers=headers, timeout=self.timeout)
         if resp.status_code >= 400:
             reason = resp.headers.get('X-Reason') or resp.text
             error = get_error_from_status(resp.status_code, reason)
