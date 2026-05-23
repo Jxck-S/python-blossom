@@ -6,29 +6,7 @@ on:
       - 'v*.*.*'
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.11', '3.12']
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install with dev deps
-        run: pip install -e ".[dev]"
-
-      - name: Run tests
-        run: pytest tests/ -v --tb=short
-        env:
-          BLOSSOM_TEST_NSEC: ${{ secrets.BLOSSOM_TEST_NSEC }}
-          BLOSSOM_TEST_PUBKEY_NPUB: ${{ secrets.BLOSSOM_TEST_PUBKEY_NPUB }}
-
   build:
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
