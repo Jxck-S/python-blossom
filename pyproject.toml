@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "python-blossom"
-version = "1.0.3"
+version = "1.1.0"
 description = "High-level Python client for the Blossom protocol (blob storage via Nostr auth)"
 readme = "README.md"
 license = {text = "MIT"}
@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "requests>=2.28.0,<3.0.0",
+    "httpx>=0.27.0,<1.0.0",
     "pynostr[websocket-client]>=0.3.0",
 ]
 
@@ -30,6 +30,7 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "pytest-asyncio>=0.23",
     "black>=23.0",
     "isort>=5.12",
     "mypy>=1.0",
@@ -53,6 +54,8 @@ include-package-data = true
 testpaths = ["tests"]
 python_files = "test_*.py"
 addopts = "-v --strict-markers"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.mypy]
 python_version = "3.11"
