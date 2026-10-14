@@ -13,12 +13,21 @@ from python_blossom.errors import TooManyRequests
 NSEC = os.getenv('BLOSSOM_TEST_NSEC')
 PUBKEY_NPUB = os.getenv('BLOSSOM_TEST_PUBKEY_NPUB')
 
-# Validate credentials are set
-if not NSEC or not PUBKEY_NPUB:
-    raise ValueError(
-        "Test credentials not configured. Set BLOSSOM_TEST_NSEC and BLOSSOM_TEST_PUBKEY_NPUB "
-        "environment variables (from .env file or GitHub Secrets)."
+# Live tests (everything outside tests/unit/) hit real servers and need credentials.
+# Without them they are skipped; the offline unit tests still run.
+HAVE_CREDENTIALS = bool(NSEC and PUBKEY_NPUB)
+UNIT_DIR = os.path.join(os.path.dirname(__file__), 'unit')
+
+
+def pytest_collection_modifyitems(config, items):
+    if HAVE_CREDENTIALS:
+        return
+    skip_live = pytest.mark.skip(
+        reason="Live test: set BLOSSOM_TEST_NSEC and BLOSSOM_TEST_PUBKEY_NPUB to run"
     )
+    for item in items:
+        if not str(item.fspath).startswith(UNIT_DIR):
+            item.add_marker(skip_live)
 
 # Test servers with capabilities
 SERVER_CAPABILITIES = {

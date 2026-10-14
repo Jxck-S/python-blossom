@@ -78,6 +78,27 @@ event_id = client.publish_server_list_event(relays=['wss://relay.damus.io'])
 print(f"Published: {event_id}")
 ```
 
+## Async Client
+
+`AsyncBlossomClient` has the same methods and return values as `BlossomClient`, just awaitable. Use it inside asyncio apps (bots, web servers) so uploads don't block the event loop, and to upload to many servers at once:
+
+```python
+import asyncio
+from python_blossom import AsyncBlossomClient
+
+async def main():
+    async with AsyncBlossomClient(nsec=nsec, default_servers=servers) as client:
+        # Uploads to every server concurrently (file is read, hashed and signed once)
+        results = await client.upload_to_all(file_path='photo.jpg', max_concurrency=5)
+
+        blob = await client.get_blob(servers[0], results[servers[0]]['sha256'])
+        await client.publish_server_list_event(relays=['wss://relay.damus.io'])
+
+asyncio.run(main())
+```
+
+Both clients keep a pooled HTTP connection. Use them as context managers (`with` / `async with`) or call `client.close()` / `await client.aclose()` when you're done. To customise the HTTP layer (proxies, retries, custom transports), pass your own `httpx.Client` / `httpx.AsyncClient` as `http_client=`.
+
 ## Publishing Media to Nostr with Redundancy
 
 Here's how to upload a photo to multiple Blossom servers and publish it to Nostr with automatic failover:
@@ -172,13 +193,13 @@ client = BlossomClient(nsec=nsec, default_servers=servers, timeout=None)
 print(DEFAULT_TIMEOUT)  # 30.0
 ```
 
-The `timeout` value is passed directly to `requests` and applies to both the connect and read phases of every HTTP call. To set separate connect vs. read timeouts, pass a tuple:
+The `timeout` value applies to every HTTP call made by the client (sync and async). To set separate connect vs. read timeouts, pass a tuple, or an `httpx.Timeout` for full control:
 
 ```python
 client = BlossomClient(nsec=nsec, timeout=(5, 30))  # 5s connect, 30s read
 ```
 
-On timeout, `requests.exceptions.Timeout` is raised.
+On timeout, `httpx.TimeoutException` is raised. Network failures raise `httpx.TransportError`; HTTP error responses raise `BlossomError` subclasses (see below).
 
 ## API Methods
 
@@ -216,7 +237,7 @@ On timeout, `requests.exceptions.Timeout` is raised.
 - Returns blob descriptor with `sha256`, `url`, `size`, `type`
 
 **`upload_to_all(data=None, file_path=None, mime_type=None, description=None, use_auth=True)`**
-- Upload blob to all default servers in parallel
+- Upload blob to all default servers (concurrently with `AsyncBlossomClient`, one after another with `BlossomClient`)
 - Uses servers configured during client initialization
 - Returns dict mapping server URLs to results/errors
 

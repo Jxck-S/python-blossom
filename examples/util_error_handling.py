@@ -58,7 +58,7 @@ else:
 
 print("\n=== Error Handling Best Practices ===")
 print("1. Catch BlossomError for Blossom-specific issues")
-print("2. Catch Connection errors (requests.ConnectionError, etc.) separately")
+print("2. Catch Connection errors (httpx.TransportError, httpx.TimeoutException) separately")
 print("3. Always check for required nsec before calling auth-required endpoints")
 print("4. Implement retry logic with exponential backoff for transient failures")
 print("5. Use try/except/else/finally for resource cleanup")
